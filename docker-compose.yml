@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reservix
+      POSTGRES_USER: reservix
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reservix"]
+      interval: 5s
+      retries: 20
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports: ["8080:8080"]
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/reservix
+      DB_USER: reservix
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET}
+      STRIPE_SECRET: ${STRIPE_SECRET:?Define STRIPE_SECRET}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?Define STRIPE_WEBHOOK_SECRET}
+volumes:
+  db:

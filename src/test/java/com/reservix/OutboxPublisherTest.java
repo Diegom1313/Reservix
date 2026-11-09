@@ -1,0 +1,38 @@
+package com.reservix;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.reservix.domain.OutboxEvent;
+import com.reservix.repository.OutboxRepository;
+import com.reservix.service.Notifier;
+import com.reservix.service.OutboxPublisher;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+class OutboxPublisherTest {
+    @Test
+    void publicaYMarca() {
+        OutboxRepository repo = mock(OutboxRepository.class);
+        Notifier notifier = mock(Notifier.class);
+        OutboxEvent event = new OutboxEvent("BOOKING_CONFIRMED", 7L);
+        when(repo.lockPending()).thenReturn(List.of(event));
+
+        assertEquals(1, new OutboxPublisher(repo, notifier).publishPending());
+
+        verify(notifier).send("BOOKING_CONFIRMED", 7L);
+        assertNotNull(event.getPublishedAt());
+    }
+
+    @Test
+    void siFallaElEnvioNoMarca() {
+        OutboxRepository repo = mock(OutboxRepository.class);
+        Notifier notifier = mock(Notifier.class);
+        OutboxEvent event = new OutboxEvent("BOOKING_CONFIRMED", 7L);
+        when(repo.lockPending()).thenReturn(List.of(event));
+        doThrow(new RuntimeException("caído")).when(notifier).send(any(), any());
+
+        assertThrows(RuntimeException.class, () -> new OutboxPublisher(repo, notifier).publishPending());
+        assertNull(event.getPublishedAt());
+    }
+}

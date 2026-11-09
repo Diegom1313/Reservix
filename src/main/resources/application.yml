@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/reservix}
+    username: ${DB_USER:reservix}
+    password: ${DB_PASSWORD:reservix}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+server:
+  error:
+    include-message: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+reservix:
+  jwt:
+    secret: ${JWT_SECRET}
+    ttl-minutes: 120
+  booking:
+    hold-minutes: 15
+  payments:
+    fake: ${PAYMENTS_FAKE:false}
+    stripe-secret: ${STRIPE_SECRET:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    success-url: ${PAYMENT_SUCCESS_URL:http://localhost:8080/ok}
+    cancel-url: ${PAYMENT_CANCEL_URL:http://localhost:8080/cancelado}
