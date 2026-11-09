@@ -32,6 +32,8 @@ docker compose up -d --build
 
 La documentación de la API queda en <http://localhost:8080/swagger-ui.html>.
 
+La pantalla de reservas se arranca con `npm install && npm run dev` en `frontend/`.
+
 ## Tests
 
 ```bash

@@ -1,0 +1,14 @@
+:root { color-scheme: light dark; --fondo: #f6f4fb; --panel: #fff; --tinta: #221c35; --tenue: #665e7c; --linea: #ddd7ea; --acento: #5b2fc9; --acento-t: #fff; --rojo: #b3261e; }
+@media (prefers-color-scheme: dark) { :root { --fondo: #18142a; --panel: #231d3a; --tinta: #ece8f7; --tenue: #aaa2c2; --linea: #3a3254; --acento: #b9a1ff; --acento-t: #1a1033; --rojo: #ffb4ab; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--tinta); font: 16px/1.5 system-ui, sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; justify-content: space-between; align-items: center; }
+h1 { margin: 0; color: var(--acento); } h2 { font-size: 1.15rem; margin: 1.6rem 0 .6rem; }
+button { font: inherit; font-weight: 600; background: var(--acento); color: var(--acento-t); border: 0; border-radius: 6px; padding: .45rem .9rem; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; } button.enlace { background: none; color: var(--acento); padding: .3rem; }
+:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+input { display: block; width: 100%; margin-top: .2rem; font: inherit; padding: .5rem; color: inherit; background: var(--panel); border: 1px solid var(--linea); border-radius: 6px; }
+.acceso { display: grid; gap: .7rem; background: var(--panel); padding: 1rem; border-radius: 8px; margin-top: 1rem; } .acceso h2 { margin: 0; }
+.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; } .lista li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .3rem 1rem; background: var(--panel); padding: .7rem 1rem; border-radius: 8px; } .lista small { display: block; color: var(--tenue); }
+.error { color: var(--rojo); margin: .5rem 0 0; }
