@@ -2,6 +2,8 @@
 
 API de reservas y pagos para clases con plazas limitadas, construida con Java 21 y Spring Boot. Garantiza que nunca se vendan más plazas de las disponibles, aunque cientos de personas reserven a la vez.
 
+![Pantalla de reservas con datos de ejemplo](docs/pantalla.png)
+
 ## Qué demuestra
 
 - **Concurrencia:** bloqueo de fila en PostgreSQL y un índice único parcial.
@@ -47,6 +49,21 @@ Docker debe estar en marcha. Uno de los tests lanza 40 reservas simultáneas sob
 ```bash
 k6 run -e SESSION_ID=1 load/reservas.js
 ```
+
+### Resultado
+
+Ejecutada en GitHub Actions con la aplicación en Docker y 100 usuarios simultáneos que intentan reservar 20 plazas:
+
+| Medida | Resultado |
+|---|---|
+| Intentos de reserva | 300 |
+| Reservas creadas | 20 |
+| Rechazadas por falta de plazas (409) | 280 |
+| Sobreventa | 0 |
+| Peticiones totales | 600, unas 62 por segundo |
+| Tiempo de respuesta (p95) | 3,07 s |
+
+El tiempo incluye el registro de cada usuario con BCrypt, que es lento a propósito, en una máquina compartida de GitHub.
 
 ## Licencia
 
