@@ -89,7 +89,7 @@ class ReservasTest {
     private String admin() {
         String email = UUID.randomUUID() + "@admin.test";
         users.save(new AppUser("Admin", email, encoder.encode(PASSWORD), Role.ADMIN));
-        return auth.login(email, PASSWORD);
+        return auth.login(email, PASSWORD, "127.0.0.2");
     }
 
     private long session(int capacity) throws Exception {
@@ -99,12 +99,61 @@ class ReservasTest {
         return res.body().get("id").asLong();
     }
 
-    private Res webhook(String id, long bookingId, String secret) throws Exception {
+    private Res webhook(String id, long bookingId, String secret, String status) throws Exception {
         String payload = mapper.writeValueAsString(Map.of("id", id, "type", "checkout.session.completed",
-                "data", Map.of("object", Map.of("metadata", Map.of("booking_id", Long.toString(bookingId))))));
+                "data", Map.of("object", Map.of("payment_status", status, "payment_intent", "pi_" + bookingId, "metadata", Map.of("booking_id", Long.toString(bookingId))))));
         long t = System.currentTimeMillis() / 1000;
         String signature = "t=" + t + ",v1=" + WebhookSignature.sign(t + "." + payload, secret);
         return call("POST", "/api/payments/webhook", payload, null, Map.of("Stripe-Signature", signature));
+    }
+
+    private Res webhook(String id, long bookingId, String secret) throws Exception {
+        return webhook(id, bookingId, secret, "paid");
+    }
+
+    private int events(long booking, String type) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM outbox_events WHERE booking_id = ? AND type = ?", Integer.class, booking, type);
+    }
+
+    @Test
+    void bloqueaFuerzaBruta() throws Exception {
+        String email = UUID.randomUUID() + "@t.test";
+        call("POST", "/api/auth/register", Map.of("name", "A", "email", email, "password", PASSWORD), null);
+        for (int i = 0; i < 5; i++) {
+            assertEquals(401, call("POST", "/api/auth/login", Map.of("email", email, "password", "mala-clave-larga"), null).status());
+        }
+        assertEquals(429, call("POST", "/api/auth/login", Map.of("email", email, "password", PASSWORD), null).status());
+    }
+
+    @Test
+    void unPagoIncompletoNoConfirma() throws Exception {
+        String token = customer();
+        long booking = call("POST", "/api/bookings", Map.of("sessionId", session(2)), token).body().get("id").asLong();
+        assertEquals(200, webhook("evt_" + UUID.randomUUID(), booking, "whsec_prueba", "unpaid").status());
+        assertEquals("PENDING_PAYMENT", call("GET", "/api/bookings/mine", null, token).body().get(0).get("status").asText());
+    }
+
+    @Test
+    void otroEventoSobreUnaReservaPagadaNoReembolsa() throws Exception {
+        long booking = call("POST", "/api/bookings", Map.of("sessionId", session(2)), customer()).body().get("id").asLong();
+        webhook("evt_" + UUID.randomUUID(), booking, "whsec_prueba");
+        webhook("evt_" + UUID.randomUUID(), booking, "whsec_prueba");
+        assertEquals(0, events(booking, "REFUND_REQUIRED"));
+    }
+
+    @Test
+    void unPagoTardioGeneraReembolso() throws Exception {
+        long booking = call("POST", "/api/bookings", Map.of("sessionId", session(2)), customer()).body().get("id").asLong();
+        jdbc.update("UPDATE bookings SET hold_expires_at = now() - interval '1 minute' WHERE id = ?", booking);
+        bookings.expireHolds();
+        webhook("evt_" + UUID.randomUUID(), booking, "whsec_prueba");
+        assertEquals(1, events(booking, "REFUND_REQUIRED"));
+        assertEquals(0, events(booking, "BOOKING_CONFIRMED"));
+    }
+
+    @Test
+    void webhookDeReservaDesconocidaSeIgnora() throws Exception {
+        assertEquals(200, webhook("evt_" + UUID.randomUUID(), 99999999L, "whsec_prueba").status());
     }
 
     @Test
@@ -180,7 +229,7 @@ class ReservasTest {
         assertEquals(200, webhook(event, booking, "whsec_prueba").status());
 
         assertEquals("CONFIRMED", call("GET", "/api/bookings/mine", null, token).body().get(0).get("status").asText());
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_events WHERE booking_id = ? AND type = 'BOOKING_CONFIRMED'", Integer.class, booking));
+        assertEquals(1, events(booking, "BOOKING_CONFIRMED"));
     }
 
     @Test

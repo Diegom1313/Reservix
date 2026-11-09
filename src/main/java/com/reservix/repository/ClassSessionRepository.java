@@ -15,5 +15,5 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     @Query("select s from ClassSession s where s.id = :id")
     Optional<ClassSession> findByIdForUpdate(@Param("id") Long id);
 
-    List<ClassSession> findByStartsAtAfterOrderByStartsAt(Instant from);
+    List<ClassSession> findTop100ByStartsAtAfterOrderByStartsAt(Instant from);
 }

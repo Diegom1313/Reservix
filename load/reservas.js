@@ -4,7 +4,7 @@ import { check } from 'k6';
 const BASE = __ENV.BASE_URL || 'http://localhost:8080';
 const SESSION = Number(__ENV.SESSION_ID);
 
-export const options = { vus: 100, iterations: 300 };
+export const options = { vus: 100, iterations: 300, thresholds: { checks: ['rate==1'] } };
 
 export default function () {
   const headers = { 'Content-Type': 'application/json' };

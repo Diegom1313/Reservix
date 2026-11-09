@@ -21,9 +21,13 @@ public class WebhookService {
         if (!processed.markProcessed(event.path("id").asText())) {
             return;
         }
-        if ("checkout.session.completed".equals(event.path("type").asText())) {
-            long bookingId = event.path("data").path("object").path("metadata").path("booking_id").asLong();
-            bookings.confirmPaid(bookingId);
+        String type = event.path("type").asText();
+        JsonNode session = event.path("data").path("object");
+        long bookingId = session.path("metadata").path("booking_id").asLong();
+        boolean paid = "checkout.session.async_payment_succeeded".equals(type)
+                || ("checkout.session.completed".equals(type) && "paid".equals(session.path("payment_status").asText()));
+        if (paid && bookingId > 0) {
+            bookings.confirmPaid(bookingId, session.path("payment_intent").asText(null));
         }
     }
 }

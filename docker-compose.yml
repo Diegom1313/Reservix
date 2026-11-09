@@ -1,6 +1,8 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     environment:
       POSTGRES_DB: reservix
       POSTGRES_USER: reservix
@@ -13,16 +15,33 @@ services:
       retries: 20
   app:
     build: .
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     depends_on:
       db:
         condition: service_healthy
-    ports: ["8080:8080"]
+    ports: ["127.0.0.1:8080:8080"]
     environment:
       DB_URL: jdbc:postgresql://db:5432/reservix
       DB_USER: reservix
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET}
-      STRIPE_SECRET: ${STRIPE_SECRET:?Define STRIPE_SECRET}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?Define STRIPE_WEBHOOK_SECRET}
+      PAYMENTS_FAKE: ${PAYMENTS_FAKE:-false}
+      STRIPE_SECRET: ${STRIPE_SECRET:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      FORWARD_HEADERS: framework
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    depends_on: [app]
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMINIO: ${DOMINIO:-localhost}
+    volumes:
+      - ./ops/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
 volumes:
   db:
+  caddy:

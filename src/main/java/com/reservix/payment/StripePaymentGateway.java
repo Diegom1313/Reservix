@@ -18,6 +18,9 @@ public class StripePaymentGateway implements PaymentGateway {
     public StripePaymentGateway(@Value("${reservix.payments.stripe-secret}") String secret,
                                 @Value("${reservix.payments.success-url}") String successUrl,
                                 @Value("${reservix.payments.cancel-url}") String cancelUrl) {
+        if (secret.isBlank()) {
+            throw new IllegalStateException("Falta STRIPE_SECRET");
+        }
         this.client = RestClient.builder().baseUrl("https://api.stripe.com/v1")
                 .defaultHeader("Authorization", "Bearer " + secret).build();
         this.successUrl = successUrl;
@@ -40,5 +43,15 @@ public class StripePaymentGateway implements PaymentGateway {
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(form).retrieve().body(JsonNode.class);
         return new Checkout(response.get("id").asText(), response.get("url").asText());
+    }
+
+    @Override
+    public void refund(String paymentIntent, Long bookingId) {
+        var form = new LinkedMultiValueMap<String, String>();
+        form.add("payment_intent", paymentIntent);
+        client.post().uri("/refunds")
+                .header("Idempotency-Key", "refund-" + bookingId)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(form).retrieve().toBodilessEntity();
     }
 }

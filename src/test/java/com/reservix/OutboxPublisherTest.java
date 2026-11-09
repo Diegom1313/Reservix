@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.reservix.domain.OutboxEvent;
+import com.reservix.payment.PaymentGateway;
+import com.reservix.repository.BookingRepository;
 import com.reservix.repository.OutboxRepository;
 import com.reservix.service.Notifier;
 import com.reservix.service.OutboxPublisher;
@@ -18,7 +20,7 @@ class OutboxPublisherTest {
         OutboxEvent event = new OutboxEvent("BOOKING_CONFIRMED", 7L);
         when(repo.lockPending()).thenReturn(List.of(event));
 
-        assertEquals(1, new OutboxPublisher(repo, notifier).publishPending());
+        assertEquals(1, new OutboxPublisher(repo, notifier, mock(BookingRepository.class), mock(PaymentGateway.class)).publishPending());
 
         verify(notifier).send("BOOKING_CONFIRMED", 7L);
         assertNotNull(event.getPublishedAt());
@@ -32,7 +34,8 @@ class OutboxPublisherTest {
         when(repo.lockPending()).thenReturn(List.of(event));
         doThrow(new RuntimeException("caído")).when(notifier).send(any(), any());
 
-        assertThrows(RuntimeException.class, () -> new OutboxPublisher(repo, notifier).publishPending());
+        assertEquals(0, new OutboxPublisher(repo, notifier, mock(BookingRepository.class), mock(PaymentGateway.class)).publishPending());
+        assertEquals(1, event.getAttempts());
         assertNull(event.getPublishedAt());
     }
 }

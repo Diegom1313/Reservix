@@ -19,6 +19,8 @@ public class Booking {
     private BookingStatus status;
     @Column(name = "checkout_id")
     private String checkoutId;
+    @Column(name = "payment_intent")
+    private String paymentIntent;
     @Column(name = "created_at")
     private Instant createdAt;
     @Column(name = "hold_expires_at")
@@ -43,6 +45,10 @@ public class Booking {
         return true;
     }
 
+    public void recordPayment(String paymentIntent) {
+        this.paymentIntent = paymentIntent;
+    }
+
     public void cancel() {
         status = BookingStatus.CANCELLED;
     }
@@ -60,5 +66,6 @@ public class Booking {
     public AppUser getUser() { return user; }
     public BookingStatus getStatus() { return status; }
     public String getCheckoutId() { return checkoutId; }
+    public String getPaymentIntent() { return paymentIntent; }
     public Instant getHoldExpiresAt() { return holdExpiresAt; }
 }

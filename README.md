@@ -30,7 +30,7 @@ cp .env.example .env   # rellena los valores
 docker compose up -d --build
 ```
 
-La documentación de la API queda en <http://localhost:8080/swagger-ui.html>.
+Con `SWAGGER_ENABLED=true`, la documentación de la API queda en <http://localhost:8080/swagger-ui.html>.
 
 La pantalla de reservas se arranca con `npm install && npm run dev` en `frontend/`.
 

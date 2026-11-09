@@ -4,8 +4,11 @@ import com.reservix.domain.*;
 import com.reservix.repository.*;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,19 +54,23 @@ public class BookingService {
     }
 
     @Transactional
-    public boolean confirmPaid(Long bookingId) {
-        Booking booking = bookings.findById(bookingId).orElseThrow(() -> new NotFoundException("Reserva no encontrada"));
-        if (!booking.confirm()) {
-            outbox.save(new OutboxEvent("REFUND_REQUIRED", bookingId));
-            return false;
+    public void releaseUnpaid(Long bookingId) {
+        bookings.findByIdForUpdate(bookingId).filter(b -> b.getStatus() == BookingStatus.PENDING_PAYMENT).ifPresent(Booking::cancel);
+    }
+
+    @Transactional
+    public void confirmPaid(Long bookingId, String paymentIntent) {
+        Booking booking = bookings.findByIdForUpdate(bookingId).orElse(null);
+        if (booking == null || booking.getStatus() == BookingStatus.CONFIRMED) {
+            return;
         }
-        outbox.save(new OutboxEvent("BOOKING_CONFIRMED", bookingId));
-        return true;
+        booking.recordPayment(paymentIntent);
+        outbox.save(new OutboxEvent(booking.confirm() ? "BOOKING_CONFIRMED" : "REFUND_REQUIRED", bookingId));
     }
 
     @Transactional
     public void cancel(Long bookingId, Long userId) {
-        Booking booking = bookings.findById(bookingId).orElseThrow(() -> new NotFoundException("Reserva no encontrada"));
+        Booking booking = bookings.findByIdForUpdate(bookingId).orElseThrow(() -> new NotFoundException("Reserva no encontrada"));
         if (!booking.getUser().getId().equals(userId)) {
             throw new NotFoundException("Reserva no encontrada");
         }
@@ -81,13 +88,17 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true)
-    public long availableSeats(ClassSession session) {
-        return session.getCapacity() - bookings.countBySessionIdAndStatusIn(session.getId(), ACTIVE);
+    public Map<Long, Long> occupiedSeats(Collection<Long> sessionIds) {
+        if (sessionIds.isEmpty()) {
+            return Map.of();
+        }
+        return bookings.countActive(sessionIds, ACTIVE).stream()
+                .collect(Collectors.toMap(BookingRepository.SeatCount::getSessionId, BookingRepository.SeatCount::getTotal));
     }
 
     @Transactional
     public int expireHolds() {
-        List<Booking> expired = bookings.findByStatusAndHoldExpiresAtBefore(BookingStatus.PENDING_PAYMENT, Instant.now());
+        List<Booking> expired = bookings.lockExpired(BookingStatus.PENDING_PAYMENT, Instant.now());
         expired.forEach(Booking::expire);
         return expired.size();
     }

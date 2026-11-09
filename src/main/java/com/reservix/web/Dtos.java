@@ -11,7 +11,7 @@ public final class Dtos {
                                   @NotBlank @Size(min = 12, max = 72) String password) {
     }
 
-    public record LoginRequest(@NotBlank String email, @NotBlank @Size(max = 200) String password) {
+    public record LoginRequest(@NotBlank @Size(max = 190) String email, @NotBlank @Size(max = 72) String password) {
     }
 
     public record TokenResponse(String token) {

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -27,7 +28,13 @@ public class BookingController {
     public BookingResponse reserve(@Valid @RequestBody BookingRequest r, @AuthenticationPrincipal Jwt jwt) {
         Booking booking = bookings.reserve(r.sessionId(), userId(jwt));
         var session = booking.getSession();
-        var checkout = payments.createCheckout(booking.getId(), session.getTitle(), session.getPriceCents());
+        PaymentGateway.Checkout checkout;
+        try {
+            checkout = payments.createCheckout(booking.getId(), session.getTitle(), session.getPriceCents());
+        } catch (RuntimeException e) {
+            bookings.releaseUnpaid(booking.getId());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "El servicio de pago no está disponible", e);
+        }
         bookings.attachCheckout(booking.getId(), checkout.id());
         return new BookingResponse(booking.getId(), session.getId(), session.getTitle(), booking.getStatus().name(),
                 booking.getHoldExpiresAt(), checkout.url());

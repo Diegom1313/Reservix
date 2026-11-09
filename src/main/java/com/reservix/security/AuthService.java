@@ -7,6 +7,7 @@ import com.reservix.service.ConflictException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,13 +22,17 @@ public class AuthService {
     private final PasswordEncoder encoder;
     private final JwtEncoder jwt;
     private final Duration ttl;
+    private final LoginThrottle throttle;
+    private final String dummyHash;
 
-    public AuthService(UserRepository users, PasswordEncoder encoder, JwtEncoder jwt,
+    public AuthService(UserRepository users, PasswordEncoder encoder, JwtEncoder jwt, LoginThrottle throttle,
                        @Value("${reservix.jwt.ttl-minutes}") long ttlMinutes) {
         this.users = users;
         this.encoder = encoder;
         this.jwt = jwt;
         this.ttl = Duration.ofMinutes(ttlMinutes);
+        this.throttle = throttle;
+        this.dummyHash = encoder.encode(UUID.randomUUID().toString());
     }
 
     @Transactional
@@ -39,11 +44,16 @@ public class AuthService {
         return token(users.save(new AppUser(name, normalized, encoder.encode(password), Role.CUSTOMER)));
     }
 
-    @Transactional(readOnly = true)
-    public String login(String email, String password) {
-        AppUser user = users.findByEmail(email.toLowerCase(Locale.ROOT))
-                .filter(u -> encoder.matches(password, u.getPasswordHash()))
-                .orElseThrow(() -> new BadCredentialsException("Credenciales incorrectas"));
+    public String login(String email, String password, String ip) {
+        String normalized = email.toLowerCase(Locale.ROOT);
+        throttle.check(normalized, ip);
+        AppUser user = users.findByEmail(normalized).orElse(null);
+        boolean valid = encoder.matches(password, user != null ? user.getPasswordHash() : dummyHash);
+        if (user == null || !valid) {
+            throttle.recordFailure(normalized, ip);
+            throw new BadCredentialsException("Credenciales incorrectas");
+        }
+        throttle.clear(normalized, ip);
         return token(user);
     }
 

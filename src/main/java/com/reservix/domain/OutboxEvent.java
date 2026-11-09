@@ -16,6 +16,9 @@ public class OutboxEvent {
     private Instant createdAt;
     @Column(name = "published_at")
     private Instant publishedAt;
+    private int attempts;
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
 
     protected OutboxEvent() {
     }
@@ -24,12 +27,19 @@ public class OutboxEvent {
         this.type = type;
         this.bookingId = bookingId;
         this.createdAt = Instant.now();
+        this.nextAttemptAt = this.createdAt;
     }
 
     public void markPublished() {
         this.publishedAt = Instant.now();
     }
 
+    public void registerFailure() {
+        attempts++;
+        nextAttemptAt = Instant.now().plusSeconds(Math.min(3600, 30L * (1L << Math.min(attempts, 7))));
+    }
+
+    public int getAttempts() { return attempts; }
     public Long getId() { return id; }
     public String getType() { return type; }
     public Long getBookingId() { return bookingId; }
