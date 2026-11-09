@@ -47,3 +47,7 @@ Docker debe estar en marcha. Uno de los tests lanza 40 reservas simultáneas sob
 ```bash
 k6 run -e SESSION_ID=1 load/reservas.js
 ```
+
+## Licencia
+
+[MIT](LICENSE)
